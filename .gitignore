@@ -2,3 +2,5 @@
 .alpackages/
 .vscode/.alcache/
 node_modules/
+# macOS
+.DS_Store
