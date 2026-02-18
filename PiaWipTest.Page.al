@@ -3,7 +3,7 @@ page 50101 "PIA WIP Test"
     PageType = Card;
     ApplicationArea = All;
     UsageCategory = Administration;
-    Caption = 'PIA WIP Test';
+    Caption = 'PIA-rapport BETA';
 
     layout
     {
@@ -25,20 +25,21 @@ page 50101 "PIA WIP Test"
     {
         area(Processing)
         {
-            action(CalculateDummy)
+            action(ExportPiaExcel)
             {
                 ApplicationArea = All;
-                Caption = 'Calculate (Dummy)';
-                Image = Calculate;
+                Caption = 'Exportera PIA-rapport till Excel';
+                Image = Export;
 
                 trigger OnAction()
                 var
                     Calc: Codeunit "Pia WIP Calculator";
                 begin
-                    Result := Calc.CalculateDummy();
-                    Message('Dummy result: %1', Result);
+                    Calc.ExportPiaToExcel_DetailPerJob();
                 end;
             }
+
+
         }
     }
 
