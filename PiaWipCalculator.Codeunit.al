@@ -221,6 +221,48 @@ codeunit 50100 "Pia WIP Calculator"
         exit(TotalCost);
     end;
 
+    /// Splitterar kostnader för en uppsättning enheter i "Paper" vs övrigt (Tryck exkl papper).
+    local procedure SumCostForUnitsForJob_SplitPaper(
+        JobRec: Record "PVS Job";
+        UnitCodes: List of [Code[20]];
+        var PaperCost: Decimal;
+        var NonPaperCost: Decimal)
+    var
+        CalcUnit: Record "PVS Job Calculation Unit";
+        CalcDetail: Record "PVS Job Calculation Detail";
+        UnitCode: Code[20];
+    begin
+        PaperCost := 0;
+        NonPaperCost := 0;
+
+        foreach UnitCode in UnitCodes do begin
+            CalcUnit.Reset();
+            CalcUnit.SetRange("ID", JobRec."ID");
+            CalcUnit.SetRange("Job", JobRec."Job");
+            CalcUnit.SetRange("Version", JobRec."Version");
+            CalcUnit.SetRange("Unit", UnitCode);
+
+            if CalcUnit.FindSet() then
+                repeat
+                    CalcDetail.Reset();
+                    CalcDetail.SetRange("ID", CalcUnit."ID");
+                    CalcDetail.SetRange("Job", CalcUnit."Job");
+                    CalcDetail.SetRange("Version", CalcUnit."Version");
+                    CalcDetail.SetRange("Plan ID", CalcUnit."Plan ID");
+                    CalcDetail.SetRange("Unit Entry No.", CalcUnit."Entry No.");
+                    CalcDetail.SetRange("Calc. Unit", UnitCode);
+
+                    if CalcDetail.FindSet() then
+                        repeat
+                            if Format(CalcDetail."Item Type") = 'Paper' then
+                                PaperCost += CalcDetail."Cost Amount"
+                            else
+                                NonPaperCost += CalcDetail."Cost Amount";
+                        until CalcDetail.Next() = 0;
+                until CalcUnit.Next() = 0;
+        end;
+    end;
+
     local procedure WritePurchaseRowsForOrderNo(
         var ExcelBuf: Record "Excel Buffer" temporary;
         OrderNo: Code[20];
@@ -242,18 +284,19 @@ codeunit 50100 "Pia WIP Calculator"
 
                 // Purchase-rad (samma kolumnordning som headern)
                 ExcelBuf.NewRow();
-                ExcelBuf.AddColumn(OrderNo, false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                      // Order No.
-                ExcelBuf.AddColumn('', false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                           // Job
-                ExcelBuf.AddColumn('', false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                           // Version
-                ExcelBuf.AddColumn('', false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                           // Job Name
-                ExcelBuf.AddColumn(PurchInvLine.Description, false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);     // Purchase Name
-                ExcelBuf.AddColumn(Format(CaseStatusCode), false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);       // Production Status (från Case)
+                ExcelBuf.AddColumn(OrderNo, false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                     // Order No.
+                ExcelBuf.AddColumn('', false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                          // Job
+                ExcelBuf.AddColumn('', false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                          // Version
+                ExcelBuf.AddColumn('', false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);                          // Job Name
+                ExcelBuf.AddColumn(PurchInvLine.Description, false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);    // Purchase Name
+                ExcelBuf.AddColumn(Format(CaseStatusCode), false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);      // Production Status (Case)
 
-                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                          // Prepress PIA
-                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                          // Tryck PIA
-                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                          // Efterbeh. PIA
-                ExcelBuf.AddColumn(Amt, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                        // Inköp PIA
-                ExcelBuf.AddColumn(Amt, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                        // Total PIA (inköp)
+                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                         // Prepress PIA
+                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                         // Tryck PIA
+                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                         // Papper PIA
+                ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                         // Efterbeh. PIA
+                ExcelBuf.AddColumn(Amt, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                       // Inköp PIA
+                ExcelBuf.AddColumn(Amt, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);                       // Total PIA (inköp)
             until PurchInvLine.Next() = 0;
     end;
 
@@ -268,7 +311,8 @@ codeunit 50100 "Pia WIP Calculator"
         FinishUnits: List of [Code[20]];
 
         Prepress: Decimal;
-        Print: Decimal;
+        PrintNonPaper: Decimal;
+        Paper: Decimal;
         Finish: Decimal;
         Total: Decimal;
 
@@ -315,7 +359,7 @@ codeunit 50100 "Pia WIP Calculator"
         FinishUnits.Add('780-PE10');
         FinishUnits.Add('790-PE10');
 
-        // Excel: header (ordningen du önskar)
+        // Excel: header (ordning + ny kolumn Papper PIA)
         ExcelBuf.NewRow();
         ExcelBuf.AddColumn('Order No.', false, '', true, false, false, '', ExcelBuf."Cell Type"::Text);
         ExcelBuf.AddColumn('Job', false, '', true, false, false, '', ExcelBuf."Cell Type"::Text);
@@ -326,14 +370,13 @@ codeunit 50100 "Pia WIP Calculator"
 
         ExcelBuf.AddColumn('Prepress PIA', false, '', true, false, false, '', ExcelBuf."Cell Type"::Number);
         ExcelBuf.AddColumn('Tryck PIA', false, '', true, false, false, '', ExcelBuf."Cell Type"::Number);
+        ExcelBuf.AddColumn('Papper PIA', false, '', true, false, false, '', ExcelBuf."Cell Type"::Number);
         ExcelBuf.AddColumn('Efterbeh. PIA', false, '', true, false, false, '', ExcelBuf."Cell Type"::Number);
         ExcelBuf.AddColumn('Inköp PIA', false, '', true, false, false, '', ExcelBuf."Cell Type"::Number);
         ExcelBuf.AddColumn('Total PIA', false, '', true, false, false, '', ExcelBuf."Cell Type"::Number);
 
-        // Loop per Case (för att kunna lägga inköp direkt efter rätt order)
+        // Loop per Case
         CaseRec.Reset();
-
-        // Case-status filter
         CaseRec.SetFilter("Status Code", '%1|%2|%3|%4|%5|%6|%7|%8',
             'ORDER', 'PROD.FÖRB', 'PREPRESS', 'KORREKTUR', 'PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS', 'EFTERKALKYL');
 
@@ -341,7 +384,7 @@ codeunit 50100 "Pia WIP Calculator"
             repeat
                 OrderNo := CaseRec."Order No.";
 
-                // Jobbrader: endast de tre statusar som används för PIA-beräkning
+                // Jobbrader: endast dessa statusar förekommer i exporten
                 JobRec.Reset();
                 JobRec.SetRange("ID", CaseRec."ID");
                 JobRec.SetFilter("Production Status Code", '%1|%2|%3', 'PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS');
@@ -349,23 +392,24 @@ codeunit 50100 "Pia WIP Calculator"
                 if JobRec.FindSet() then
                     repeat
                         Prepress := 0;
-                        Print := 0;
+                        PrintNonPaper := 0;
+                        Paper := 0;
                         Finish := 0;
 
-                        // Prepress gäller när jobbet nått PRODUKTION eller längre
+                        // Prepress gäller från PRODUKTION och framåt
                         if JobRec."Production Status Code" in ['PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS'] then
                             Prepress := SumCostForUnitsForJob(JobRec, PrepressUnits);
 
-                        // Tryck gäller när jobbet nått EFTERBEHANDLING eller längre
+                        // Tryck gäller från EFTERBEHANDLING och framåt (men split papper)
                         if JobRec."Production Status Code" in ['EFTERBEHANDLING', 'LEVERANS'] then
-                            Print := SumCostForUnitsForJob(JobRec, PrintUnits);
+                            SumCostForUnitsForJob_SplitPaper(JobRec, PrintUnits, Paper, PrintNonPaper);
 
-                        // Efterbeh gäller endast när jobbet är i LEVERANS
+                        // Efterbeh gäller endast LEVERANS
                         if JobRec."Production Status Code" = 'LEVERANS' then
                             Finish := SumCostForUnitsForJob(JobRec, FinishUnits);
 
-                        Total := Prepress + Print + Finish;
-
+                        // Total på jobbrad = alla tre “produktionsteg” inkl papper (inköp hanteras på egna rader)
+                        Total := Prepress + PrintNonPaper + Paper + Finish;
 
                         JobName := JobRec."Job Name";
 
@@ -378,13 +422,14 @@ codeunit 50100 "Pia WIP Calculator"
                         ExcelBuf.AddColumn(Format(JobRec."Production Status Code"), false, '', false, false, false, '', ExcelBuf."Cell Type"::Text);
 
                         ExcelBuf.AddColumn(Prepress, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);
-                        ExcelBuf.AddColumn(Print, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);
+                        ExcelBuf.AddColumn(PrintNonPaper, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);
+                        ExcelBuf.AddColumn(Paper, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);
                         ExcelBuf.AddColumn(Finish, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);
-                        ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number); // Inköp PIA
+                        ExcelBuf.AddColumn(0, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number); // Inköp PIA (0 på jobbrad)
                         ExcelBuf.AddColumn(Total, false, '', false, false, false, '', ExcelBuf."Cell Type"::Number);
                     until JobRec.Next() = 0;
 
-                // Inköpsrader (bara om Amount <> 0) + skriv ut Case status på dessa rader
+                // Inköpsrader (bara om Amount <> 0) + Case status på dessa rader
                 WritePurchaseRowsForOrderNo(ExcelBuf, OrderNo, CaseRec."Status Code");
 
             until CaseRec.Next() = 0;
