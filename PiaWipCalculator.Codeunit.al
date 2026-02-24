@@ -76,7 +76,7 @@ codeunit 50100 "Pia WIP Calculator"
 
                     if CalcDetail.FindSet() then
                         repeat
-                            if Format(CalcDetail."Item Type") = 'Paper' then
+                            if CalcDetail."Item Type" = CalcDetail."Item Type"::Paper then
                                 PaperCost += CalcDetail."Cost Amount"
                             else
                                 NonPaperCost += CalcDetail."Cost Amount";
@@ -92,9 +92,9 @@ codeunit 50100 "Pia WIP Calculator"
     // =====================================================
 
     local procedure CollectPaperItemNosForCase(
-        CaseRec: Record "PVS Case";
-        PrintUnits: List of [Code[20]];
-        var PaperItemNos: Dictionary of [Code[20], Boolean])
+    CaseRec: Record "PVS Case";
+    PrintUnits: List of [Code[20]];
+    var PaperItemNos: Dictionary of [Code[20], Boolean])
     var
         JobRec: Record "PVS Job";
         CalcUnit: Record "PVS Job Calculation Unit";
@@ -128,16 +128,22 @@ codeunit 50100 "Pia WIP Calculator"
 
                             if CalcDetail.FindSet() then
                                 repeat
-                                    if (Format(CalcDetail."Item Type") = 'Paper') and
-                                       (CalcDetail."Item No." <> '') then
+                                    if (CalcDetail."Item Type" = CalcDetail."Item Type"::Paper) and
+                                       (CalcDetail."Item No." <> '') then begin
+
                                         if PaperItemNos.ContainsKey(CalcDetail."Item No.") then
                                             PaperItemNos.Set(CalcDetail."Item No.", true)
                                         else
                                             PaperItemNos.Add(CalcDetail."Item No.", true);
+
+                                    end;
+
                                 until CalcDetail.Next() = 0;
 
                         until CalcUnit.Next() = 0;
+
                 end;
+
             until JobRec.Next() = 0;
     end;
 
