@@ -28,7 +28,7 @@ page 50101 "PIA WIP Test"
             action(ExportPiaExcel)
             {
                 ApplicationArea = All;
-                Caption = 'Exportera PIA-rapport till Excel';
+                Caption = 'Exportera PIA-rapport till Excel (TMG Sthlm)';
                 Image = Export;
 
                 trigger OnAction()

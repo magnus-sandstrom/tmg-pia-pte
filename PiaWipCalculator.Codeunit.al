@@ -92,9 +92,9 @@ codeunit 50100 "Pia WIP Calculator"
     // =====================================================
 
     local procedure CollectPaperItemNosForCase(
-    CaseRec: Record "PVS Case";
-    PrintUnits: List of [Code[20]];
-    var PaperItemNos: Dictionary of [Code[20], Boolean])
+        CaseRec: Record "PVS Case";
+        PrintUnits: List of [Code[20]];
+        var PaperItemNos: Dictionary of [Code[20], Boolean])
     var
         JobRec: Record "PVS Job";
         CalcUnit: Record "PVS Job Calculation Unit";
@@ -105,7 +105,9 @@ codeunit 50100 "Pia WIP Calculator"
 
         JobRec.Reset();
         JobRec.SetRange("ID", CaseRec."ID");
-        JobRec.SetFilter("Production Status Code", '%1|%2', 'EFTERBEHANDLING', 'LEVERANS');
+
+        // 🔧 ÄNDRING: Ta med EFTERKALKYL (så paper-itemnos även samlas upp där)
+        JobRec.SetFilter("Production Status Code", '%1|%2|%3', 'EFTERBEHANDLING', 'LEVERANS', 'EFTERKALKYL');
 
         if JobRec.FindSet() then
             repeat
@@ -291,8 +293,10 @@ codeunit 50100 "Pia WIP Calculator"
                 // Jobbrader
                 JobRec.Reset();
                 JobRec.SetRange("ID", CaseRec."ID");
-                JobRec.SetFilter("Production Status Code", '%1|%2|%3',
-                    'PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS');
+
+                // 🔧 ÄNDRING: Ta med EFTERKALKYL
+                JobRec.SetFilter("Production Status Code", '%1|%2|%3|%4',
+                    'PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS', 'EFTERKALKYL');
 
                 if JobRec.FindSet() then
                     repeat
@@ -301,13 +305,16 @@ codeunit 50100 "Pia WIP Calculator"
                         Paper := 0;
                         Finish := 0;
 
-                        if JobRec."Production Status Code" in ['PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS'] then
+                        // 🔧 ÄNDRING: Prepress även för EFTERKALKYL
+                        if JobRec."Production Status Code" in ['PRODUKTION', 'EFTERBEHANDLING', 'LEVERANS', 'EFTERKALKYL'] then
                             Prepress := SumCostForUnitsForJob(JobRec, PrepressUnits);
 
-                        if JobRec."Production Status Code" in ['EFTERBEHANDLING', 'LEVERANS'] then
+                        // 🔧 ÄNDRING: Tryck/Papper även för EFTERKALKYL
+                        if JobRec."Production Status Code" in ['EFTERBEHANDLING', 'LEVERANS', 'EFTERKALKYL'] then
                             SumCostForUnitsForJob_SplitPaper(JobRec, PrintUnits, Paper, PrintNonPaper);
 
-                        if JobRec."Production Status Code" = 'LEVERANS' then
+                        // 🔧 ÄNDRING: Efterbeh även för EFTERKALKYL
+                        if JobRec."Production Status Code" in ['LEVERANS', 'EFTERKALKYL'] then
                             Finish := SumCostForUnitsForJob(JobRec, FinishUnits);
 
                         Total := Prepress + PrintNonPaper + Paper + Finish;
