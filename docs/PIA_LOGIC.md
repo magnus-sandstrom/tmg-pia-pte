@@ -35,7 +35,8 @@ Kostnader inkluderas för uppdrag med status:
 
 - PRODUKTION  
 - EFTERBEHANDLING  
-- LEVERANS  
+- LEVERANS
+- EFTERKALKYL  
 
 ## Regel
 
@@ -64,7 +65,8 @@ Så snart uppdraget har passerat Prepress och gått vidare i flödet inkluderas 
 Kostnader inkluderas för uppdrag med status:
 
 - EFTERBEHANDLING  
-- LEVERANS  
+- LEVERANS
+- EFTERKALKYL    
 
 ## Regel
 
@@ -105,7 +107,8 @@ Endast kalkylrader där:
 ## Statuskrav
 
 - EFTERBEHANDLING  
-- LEVERANS  
+- LEVERANS
+- EFTERKALKYL    
 
 ## Syfte
 
@@ -154,7 +157,8 @@ Separera papperskostnaden från övrig tryckkostnad:
 
 Endast för uppdrag med status:
 
-- LEVERANS  
+- LEVERANS
+- EFTERKALKYL    
 
 ## Regel
 
